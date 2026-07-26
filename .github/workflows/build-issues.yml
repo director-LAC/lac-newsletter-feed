@@ -1,0 +1,44 @@
+# Rebuilds issues.json for the Lander Art Center /subscribe page.
+#
+# Runs on a schedule so the website's "Past issues" list keeps itself current with
+# no work on newsletter day. Also runnable by hand from the Actions tab.
+#
+# Twice daily rather than once: Mailchimp's archive can lag a send by a little, and a
+# second pass means a Saturday issue is live the same day rather than the next morning.
+name: Build issues.json
+
+on:
+  schedule:
+    - cron: '0 14 * * *'   # 14:00 UTC, roughly 8am Mountain
+    - cron: '0 2 * * *'    # 02:00 UTC, roughly 8pm Mountain
+  workflow_dispatch:        # the "Run workflow" button
+
+permissions:
+  contents: write           # needed to commit the rebuilt file
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build issues.json
+        run: python build_issues.py
+        # No pip install. The script uses only the standard library on purpose, so
+        # there is no dependency that can rot and break this months from now.
+
+      - name: Commit if it changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet issues.json; then
+            echo "no change, nothing to commit"
+          else
+            git add issues.json
+            git commit -m "Update issues.json"
+            git push
+          fi
